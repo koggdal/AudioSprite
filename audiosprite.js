@@ -32,9 +32,19 @@
 		for (i = 0; i < numTracks; i++) {
 			audio = new Audio();
 			audio.autobuffer = true;
+			audio.loaded = false;
 			audio.src = src;
 			audio.load();
 			audio.userPaused = false;
+			audio.loopSprite = false;
+			
+			// Bind event handler to loop the audio when the end is reached
+			audio.addEventListener("ended", (function (i, sprite, audio) { return function () {
+				if (audio.loopSprite) {
+					sprite.play(i);
+				}
+			}; })(i, _this, audio), false);
+			
 			sounds.push(audio);
 			timers.push(0);
 		}
@@ -72,11 +82,12 @@
 				i, sprite;
 				
 			// If the audio hasn't loaded yet, try again
-			if ((sound.readyState !== 4 && !isTouch) || (isTouch && sound.seekable && sound.seekable.length === 0)) {
+			if ((sound.readyState !== 4 && !isTouch && !sound.loaded) || (isTouch && sound.seekable && sound.seekable.length === 0 && !sound.loaded)) {
 				return setTimeout(function () {
 					_this.play(position);
 				}, 10);
 			}
+			sound.loaded = true;
 			
 			// Fill the sprite array if it hasn't been filled yet
 			if (this.sprites.length === 0) {
@@ -127,11 +138,20 @@
 			var sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position];
 			sound.pause();
 			sound.currentTime = 0;
+			sound.loopSprite = false;
+		},
+		
+		// Plays the audio and loops when it reaches the end
+		loop: function (position) {
+			var sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position];
+			sound.loopSprite = true;
+			this.play(position);
 		},
 		
 		// Checks for the end of the sprite and pauses the audio when it's reached
 		checkTime: function (position, endTime) {
-			var sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position],
+			var _this = this,
+				sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position],
 				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position],
 				diff;
 				
@@ -148,6 +168,9 @@
 				// Set a new timer, that will fire exactly when the clip is supposed to end
 				setTimeout(function () {
 					sound.pause();
+					if (sound.loopSprite) {
+						_this.play(position);
+					}
 				}, (endTime - sound.currentTime) * 1000);
 			}
 		}
@@ -174,6 +197,9 @@
 		},
 		stop: function () {
 			this.sprite.stop(this.position);
+		},
+		loop: function () {
+			this.sprite.loop(this.position);
 		}
 	};
 	
