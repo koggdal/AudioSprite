@@ -4,7 +4,8 @@
  * Copyright 2011, Johannes Koggdal
  * MIT License
  */
-(function (window, document, isTouch, undefined) {
+(function (window, document, undefined) {
+	var isTouch = ("ontouchstart" in window||"createTouch" in document);
 
 	// Constructor for the AudioSprite object
 	// usage: var sprite = new AudioSprite("sound.wav", 100);
@@ -179,4 +180,4 @@
 	window.AudioSprite = AudioSprite;
 	window.Sound = Sound;
 
-})(window, document, ("ontouchstart" in window || "createTouch" in document));
+})(window, document);
