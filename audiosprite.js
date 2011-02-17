@@ -1,15 +1,25 @@
-(function (window, document, undefined) {
+(function (window, document, isTouch, undefined) {
 
 	// Constructor for the AudioSprite object
 	// usage: var sprite = new AudioSprite("sound.wav", 100);
 	// length specified in milliseconds
 	var AudioSprite = function (src, numSprites) {
 		var _this = this,
-			numTracks, i, audio, sounds = [], timers = [],
+			numTracks, i, audio,
+			sounds = [], timers = [], sprites = [],
 			forceLoad, setSpriteLength;
-	
+		
 		numSprites = numSprites || 1;
-		numTracks = ("ontouchstart" in window || "createTouch" in document) ? 1 : numSprites;
+		
+		// Get specific sprite sizes
+		if (numSprites instanceof Array) {
+			sprites = numSprites;
+			numSprites = sprites.length;
+		}
+	
+		// Get number of tracks
+		// iOS only deals with one track at a time, so we set this to 1 for iOS
+		numTracks = isTouch ? 1 : numSprites;
 	
 		// Create the audio objects
 		for (i = 0; i < numTracks; i++) {
@@ -23,7 +33,11 @@
 		}
 		this.sounds = sounds;
 		this.timers = timers;
+		this.sprites = sprites;
 		this.numTracks = numTracks;
+		this.lastCurrentTime = 0;
+		this.totalDiff = 0;
+		this.diffs = 0;
 		
 		// Set the number of sprites in the current file
 		this.numSprites = numSprites;
@@ -47,32 +61,40 @@
 			var _this = this,
 				sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position],
 				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position],
-				length = sound.duration / this.numSprites,
-				startTime = length * position,
-				endTime = length * (position + 1);
-			
-			
-			
+				length = sound.duration / this.numSprites * 1000,
+				i, sprite;
+				
 			// If the audio hasn't loaded yet, try again
-			if (sound.readyState !== 4 || sound.seekable.length === 0) {
+			if ((sound.readyState !== 4 && !isTouch) || (isTouch && sound.seekable && sound.seekable.length === 0)) {
 				return setTimeout(function () {
 					_this.play(position);
 				}, 10);
 			}
-		
+			
+			// Fill the sprite array if it hasn't been filled yet
+			if (this.sprites.length === 0) {
+				for (i = 0; i < this.numSprites; i++) {
+					this.sprites.push({
+						start: i * length,
+						length: length
+					});
+				}
+			}
+			sprite = this.sprites[position];
+			
 			// Only deal with the sprite settings if a position is passed in, and there are more than one sprites
 			// If no position is passed in, the whole audio clip will be played until the end
 			if (position !== undefined && this.numSprites > 1) {
 				
 				// Set the new time for the current sprite, only if the user had not paused it
 				if (!sound.userPaused) {
-					sound.currentTime = startTime;
+					sound.currentTime = sprite.start / 1000;
 				}
 				
 				// Set a timer that will check for the end of the sprite
 				clearInterval(timer);
 				timer = setInterval(function () {
-					_this.checkTime(position, endTime);
+					_this.checkTime(position, (sprite.start + sprite.length) / 1000);
 				}, 1);
 				if (this.numTracks === 1) {
 					this.timers[0] = timer;
@@ -103,10 +125,23 @@
 		// Checks for the end of the sprite and pauses the audio when it's reached
 		checkTime: function (position, endTime) {
 			var sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position],
-				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position];
-			if (sound.currentTime >= endTime) {
-				sound.pause();
+				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position],
+				diff;
+				
+			// Calculate the difference between each update of currentTime
+			// Firefox doesn't update that often, so for small sound effects it will be weird
+			this.totalDiff += sound.currentTime - this.lastCurrentTime;
+			this.diffs++;
+			diff = this.totalDiff / this.diffs;
+			
+			// Check if the next update of currentTime will be past the end time, and if so, clear the timer
+			if (sound.currentTime + diff >= endTime) {
 				clearInterval(timer);
+				
+				// Set a new timer, that will fire exactly when the clip is supposed to end
+				setTimeout(function () {
+					sound.pause();
+				}, (endTime - sound.currentTime) * 1000);
 			}
 		}
 	};
@@ -138,4 +173,4 @@
 	window.AudioSprite = AudioSprite;
 	window.Sound = Sound;
 
-})(window, document);
+})(window, document, ("ontouchstart" in window || "createTouch" in document));
