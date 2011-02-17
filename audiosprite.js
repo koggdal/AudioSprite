@@ -1,3 +1,9 @@
+/*!
+ * AudioSprite v1.0
+ *
+ * Copyright 2011, Johannes Koggdal
+ * MIT License
+ */
 (function (window, document, isTouch, undefined) {
 
 	// Constructor for the AudioSprite object
