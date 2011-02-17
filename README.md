@@ -35,6 +35,7 @@ These methods work on both AudioSprite and Sound objects. When used on AudioSpri
 * play()
 * pause()
 * stop()
+* loop()
 
 
 You can access the actual audio object by using `sprite.sounds[index]`, or if you want to access it from a Sound object you can use `sound.sprite.sounds[index]`.
