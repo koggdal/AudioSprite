@@ -1,5 +1,5 @@
 /*!
- * AudioSprite v1.0
+ * AudioSprite v1.1
  *
  * Copyright 2011, Johannes Koggdal
  * MIT License
