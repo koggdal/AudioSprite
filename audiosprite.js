@@ -1,5 +1,5 @@
 /*!
- * AudioSprite v1.1
+ * AudioSprite v1.11
  *
  * Copyright 2011, Johannes Koggdal
  * MIT License
@@ -27,6 +27,7 @@
 		// Get number of tracks
 		// iOS only deals with one track at a time, so we set this to 1 for iOS
 		numTracks = isTouch ? 1 : numSprites;
+
 	
 		// Create the audio objects
 		for (i = 0; i < numTracks; i++) {
@@ -80,7 +81,7 @@
 				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position],
 				length = sound.duration / this.numSprites * 1000,
 				i, sprite;
-				
+			
 			// If the audio hasn't loaded yet, try again
 			if ((sound.readyState !== 4 && !isTouch && !sound.loaded) || (isTouch && sound.seekable && sound.seekable.length === 0 && !sound.loaded)) {
 				return setTimeout(function () {
@@ -107,23 +108,39 @@
 				// Set the new time for the current sprite, only if the user had not paused it
 				if (!sound.userPaused) {
 					sound.currentTime = sprite.start / 1000;
+					sound.lastStart = sprite.start / 1000;
 				}
 				
-				// Set a timer that will check for the end of the sprite
+				sound.play();
+				sound.userPaused = false;
+				
+				// Set a custom timer that will keep track of the current position and end time
+				// This is done to get a more frequent update of the current time,
+				// since some browsers, especially Firefox, updates with large intervals
+				sound.time = sprite.start;
+				sound.timeStart = (new Date()).getTime();
 				clearInterval(timer);
 				timer = setInterval(function () {
-					_this.checkTime(position, (sprite.start + sprite.length) / 1000);
+					sound.time = sprite.start + (new Date()).getTime() - sound.timeStart;
+					
+					_this.checkTime(position, sprite.start + sprite.length);
 				}, 1);
 				if (this.numTracks === 1) {
 					this.timers[0] = timer;
 				} else {
 					this.timers[position] = timer;
 				}
-			}
+				
+			} else {
 			
-			// Plays the audio
-			sound.play();
-			sound.userPaused = false;
+				// Play the full audio file if no position was set
+				if (!sound.userPaused) {
+					sound.currentTime = 0;
+					sound.lastStart = 0;
+				}
+				sound.play();
+				sound.userPaused = false;
+			}
 		},
 		
 		// Pauses the audio
@@ -152,26 +169,17 @@
 		checkTime: function (position, endTime) {
 			var _this = this,
 				sound = this.numTracks === 1 ? this.sounds[0] : this.sounds[position],
-				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position],
-				diff;
-				
-			// Calculate the difference between each update of currentTime
-			// Firefox doesn't update that often, so for small sound effects it will be weird
-			this.totalDiff += sound.currentTime - this.lastCurrentTime;
-			this.diffs++;
-			diff = this.totalDiff / this.diffs;
-			
-			// Check if the next update of currentTime will be past the end time, and if so, clear the timer
-			if (sound.currentTime + diff >= endTime) {
+				timer = this.numTracks === 1 ? this.timers[0] : this.timers[position];
+
+			// Check if the timer is past the end time, and if so, pause the audio
+			if (sound.time >= endTime && sound.currentTime * 1000 >= endTime) {
 				clearInterval(timer);
+				sound.currentTime = 0;
+				sound.pause();
 				
-				// Set a new timer, that will fire exactly when the clip is supposed to end
-				setTimeout(function () {
-					sound.pause();
-					if (sound.loopSprite) {
-						_this.play(position);
-					}
-				}, (endTime - sound.currentTime) * 1000);
+				if (sound.loopSprite) {
+					_this.play(position);
+				}
 			}
 		}
 	};
